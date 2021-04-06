@@ -1,5 +1,5 @@
 # Licence-Plate-Recognition
-![](src=img/plate.jpg width="500" height="375")
+![](src="img/plate.jpg" width="500" height="375")
 ## Goal
 The goal of the project was to create a script that is able to read Polish licence plates using OpenCV library
 ## Assumptions
