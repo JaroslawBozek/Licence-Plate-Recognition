@@ -36,9 +36,12 @@ Image gets thresholded multiple times with a different threshold value. During e
 * Use Opening morphology in order to get rid of small noise and reduce the number of calculation
 * Use findCountours function to draw contours and determine their hierarchy
 * Use the contours to find bounding boxes
-* The image is then cut in multiple, horizontal lines, for every line, check:
-  * If it intersects with at least 4 bounding boxes. If it does, increase intersected boxes' score by one
-  * The dimensions of each bounding box are saved for the next iteration, if the dimensions don't change significantly, the bounding box is still considered to be the same object and its score is saved for the next iterations.
-
+* Cut the image in multiple horizontal lines, for every line check:
+  * If it intersects with at least 4 bounding boxes. If it does, increase intersected boxes' score by one.
+  * Save the dimensions of each bounding box for the next iteration. If the dimensions don't change significantly, the bounding box is still considered to be the same object and its score is saved for the next iterations. 
+* The first 7 objects with the highest scores are considered as characters
 
 ![](img/54m7dp.gif)
+
+### Cleaning characters
+* Use otsu binarisation to get rid of the noise on each character
