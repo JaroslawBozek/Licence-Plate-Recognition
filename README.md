@@ -1,8 +1,7 @@
 # Licence-Plate-Recognition
-
+![](img/plate.jpg)
 ## Goal
 The goal of the project was to create a script that is able to read Polish licence plates using OpenCV library
-
 ## Assumptions
 * Horizontal and vertical angle of the presented licence plate may vary by +- 45 degrees
 * Longer side of licence plate is at least 1/3 size of the image
