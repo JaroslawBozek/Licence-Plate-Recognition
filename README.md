@@ -30,4 +30,5 @@ Score system:
 
 ## How does it work?
 
+
 ![](img/54m7dp.gif)
