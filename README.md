@@ -52,6 +52,6 @@ Image gets thresholded multiple times with a different threshold value. During e
 * Resize each character into a 50x50 image
 * Use bitwise_xor function and compare each image with each, previously prepared character
 * The character with the lowest score is considered the character on the image. But before that happens, a few more operations
- * Calculate the top/bottom pixel ratio and compare it with the letter's true values.
- * Check if the possible combination of letters and numbers exists. If not then get rid of the mismatched character and try to find the matching one with the lowest score
+  * Calculate the top/bottom pixel ratio and compare it with the letter's true values.
+  * Check if the possible combination of letters and numbers exists. If not then get rid of the mismatched character and try to find the matching one with the lowest score
 
