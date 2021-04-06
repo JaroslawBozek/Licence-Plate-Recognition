@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import cv2
 import numpy as np
-
+import time
 
 
 #(Unused) This function was used to prepare letters which program compares results with.
@@ -24,7 +24,6 @@ def cropping50x50():
 
     cv2.imwrite('output_letter.PNG', img1)
     cv2.waitKey()
-
 #(Unused) This function was used to analyze templates and their bottom/top half pixels ratio
 def letter_test():
     letter_images = []
@@ -40,49 +39,61 @@ def letter_test():
         bottom_sum = np.sum(img[25:,:] == 255)
         top_sum = np.sum(img[:25,:] == 255)
         print(letters_list[i], i, bottom_sum/top_sum)
+def check_score(results):
 
+    all_count = 0
+    all_score = 0
+    max_score = 0
+    score = 0
 
-#Main function
-def FindSomeLetters(image):
-    #Calculation time may vary. Heavily depends on number of details
+    for i in results:
+        letter_score = 0
+        origin = i[:7]
+        result = results[i]
+        for j in range(7):
+            all_count += 1
+            if origin[j] == result[j]:
+                letter_score += 1
+        max_score += 10
+        score += letter_score
+        all_score += letter_score
+        if letter_score == 7:
+            score += 3
 
-    #1 - Load all pattern images and add them to array
+    return score, max_score, all_score, all_count
+def prepare_characters(letters_list):
     letter_images = []
-    letters_list = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-                    'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
     for i in range(len(letters_list)):
         img_name = letters_list[i] + '_crop.PNG'
         img = cv2.imread('Patterns/' + img_name, 0)
         letter_images.append(img)
-
-
-    #2 - Load an image and resize it
-    x,y,c = image.shape
+    return letter_images
+def resize_image(image):
+    x, y, c = image.shape
     mult = 1
 
     if y > 1000:
         mult = 1
     if y > 2000:
-        mult = 0.5
+        mult = 1/2
     if y > 3000:
-        mult = 0.33
+        mult = 1/3
     if y > 4000:
-        mult = 0.25
+        mult = 1/4
     image = cv2.resize(image, None, fx=mult, fy=mult)
-
-    image_test = image.copy()
-    image_test_cp = image.copy()
-
-
-    last_loop_contours = []
+    if y > 5000:
+        image = cv2.resize(image, None, fx=1000 / y, fy=1000 / y)
+    return image
+def find_letters(image):
     hall_of_fame = []
     hof_score = []
+    last_loop_contours = []
+    image_test = image.copy()
+    image_test_cp = image.copy()
+    diff_tolerance = image.shape[1]/250
+    iterations = 85
+    test_mode = 0
 
-    diff_tolerance = image.shape[1]/250 #indicates the tolerance of changes in bounding boxes dimensions over iterations. Depends on letter sizes
-    iterations = 85 #the more, the better (cap 200)
-    test_mode = 0 #change to 1 to analyze the results
-    possible_plates_enabled = 1
-    #3 - Perform different threshoildings 'iterations' times and count how many times did certain bounding boxes reappear
     for div in range(iterations):
         if test_mode == 1:
             image_test[:] = image_test_cp[:]
@@ -177,29 +188,26 @@ def FindSomeLetters(image):
             cv2.imshow('image_test', image_test)
             cv2.waitKey()
         last_loop_contours = unique_contours
-
-
-    if len(hof_score) == 0 and len(hall_of_fame) == 0:
-        return '???????'
-
-    #PART 4 - find <= 7 bounding boxes with the best scores and count them as letters
+    return hof_score, hall_of_fame
+def get_7characters(hof_score, hall_of_fame):
     hof_score, hall_of_fame = zip(*sorted(zip(hof_score, hall_of_fame)))
-
 
     hall_of_fame = hall_of_fame[-7:]
     left_sides = []
     for i in hall_of_fame:
         left_sides.append(i[0])
-
     left_sides, hall_of_fame = zip(*sorted(zip(left_sides, hall_of_fame)))
-    letters7 = []
+    return hall_of_fame
+def image_cleaning(image, hall_of_fame):
+    characters7 = []
+    test_mode = 0
 
-    #5 - Perform hsv and otsu thresholding on letters
     for iteration, i in enumerate(hall_of_fame):
         name = str(iteration)
 
-
         letter = image[i[1]:i[1]+i[3],i[0]:i[0]+i[2]]
+        if test_mode == 1:
+            cv2.imshow(name+'orig', letter)
         hsv_letter = cv2.cvtColor(letter, cv2.COLOR_BGR2HSV)
         hsv_letter = cv2.inRange(hsv_letter, (0, 0, i[4]), (255, 255, 255))
         hsv_letter = cv2.bitwise_not(hsv_letter)
@@ -213,28 +221,25 @@ def FindSomeLetters(image):
 
         #the output is a xor of otsu binarization and last hsv binarization
         letter = cv2.bitwise_and(hsv_letter, otsu_letter)
-        letters7.append(letter)
+        characters7.append(letter)
         if test_mode == 1:
-            # cv2.imshow(name+'otsu', otsu_letter)
-            # cv2.imshow(name+'hsv', hsv_letter)
+            cv2.imshow(name+'otsu', otsu_letter)
+            cv2.imshow(name+'hsv', hsv_letter)
             cv2.imshow(name, letter)
-
-
-    # get letters
+    return characters7
+def classify_characters(characters7, letters_list):
     output_string = ''
     sum_lists = []
     real_chain = ''
     chain = ''
-
-    #6 - Perform watershed, warp perspective and try to compare letters to patters using xor and some extra pixel
-    #comparisons. The letters with the patterns score are chosen.
-    for i in range(len(letters7)):
+    letter_images = prepare_characters(letters_list)
+    for i in range(len(characters7)):
 
         #get rid of noise
-        letter_copy = letters7[i].copy()
+        letter_copy = characters7[i].copy()
 
         kernel = np.ones((3, 3), np.uint8)
-        opening = cv2.morphologyEx(letters7[i], cv2.MORPH_OPEN, kernel, iterations=1)
+        opening = cv2.morphologyEx(characters7[i], cv2.MORPH_OPEN, kernel, iterations=1)
         sure_bg = cv2.dilate(opening, kernel, iterations=3)
         dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
         ret, sure_fg = cv2.threshold(dist_transform, 0.05 * dist_transform.max(), 255, 0)
@@ -267,7 +272,6 @@ def FindSomeLetters(image):
         box = cv2.boxPoints(rect)
         box = np.int0(box)
 
-
         width = int(rect[1][0])
         height = int(rect[1][1])
 
@@ -282,10 +286,10 @@ def FindSomeLetters(image):
         letter_h, letter_w = warped.shape
         if letter_w > letter_h:
             warped = cv2.rotate(warped, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        letters7[i] = warped
+        characters7[i] = warped
 
 
-        tested = cv2.resize(letters7[i], (50, 50))
+        tested = cv2.resize(characters7[i], (50, 50))
 
         sum_list = []
         for j in range(len(letters_list)):
@@ -349,6 +353,66 @@ def FindSomeLetters(image):
 
         output_string = output_string + letters_list[letter_found_index]
 
+    return chain, sum_lists, real_chain, output_string
+def check_combinations(chain, sum_lists, real_chain, letters_list, output_string):
+    # Possible combinations according to: https://en.wikipedia.org/wiki/Vehicle_registration_plates_of_Poland
+    # where 1 represents letter and 0 represents number (only last 5 are considered since first 2 are always a letter)
+    chains = ['00000', '00001', '00011', '01000', '01100', '11000', '10011', '10100', '10010', '10110', '11100']
+    Possible_chains = ['00000', '00001', '00011', '01000', '01100', '11000', '10011', '10100', '10010', '10110',
+                       '11100']
+
+    # With enough data, this part helps to distinguish similar numbers and letters (8 and B, 5 and S, etc.)
+    for Possible_chain in chains:
+        for j in range(len(chain) - 2):
+            if chain[j + 2] == 'x':
+                continue
+            else:
+                if chain[j + 2] != Possible_chain[j]:
+                    Possible_chains.remove(Possible_chain)
+                    break
+
+    if len(Possible_chains) == 1:
+        for i in range(len(Possible_chains[0])):
+            if chain[i + 2] == 'x':
+                to_modify = 0
+                if Possible_chains[0][i] == '0' and real_chain[i + 2] == '1':
+                    for j in range(len(sum_lists[i + 2])):
+                        if j > 9:
+                            sum_lists[i + 2][j] = sum_lists[i + 2][j] + 2500
+                            to_modify = 1
+
+                if Possible_chains[0][i] == '1' and real_chain[i + 2] == '0':
+                    for j in range(len(sum_lists[i + 2])):
+                        if j <= 9:
+                            sum_lists[i + 2][j] = sum_lists[i + 2][j] + 2500
+                            to_modify = 1
+                if to_modify == 1:
+                    min_value = min(sum_lists[i + 2])
+                    result = np.where(sum_lists[i + 2] == min_value)
+                    s = list(output_string)
+                    s[i + 2] = letters_list[result[0][0]]
+                    output_string = ''.join(s)
+    return output_string
+#Main function
+def FindSomeLetters(image):
+    #Calculation time may vary. Heavily depends on number of details
+    test_mode = 1
+    #1 - Load all pattern images and add them to array
+    letters_list = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+                    'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+    #2 - resize the image
+    image = resize_image(image)
+    #3 - Perform different threshoildings 'iterations' times and count how many times did certain bounding boxes reappear
+    hof_score, hall_of_fame = find_letters(image)
+    if len(hof_score) == 0 and len(hall_of_fame) == 0:
+        return '???????'
+    #4 - find <= 7 bounding boxes with the best scores and count them as characters
+    hall_of_fame = get_7characters(hof_score, hall_of_fame)
+    #5 - Cleaning - Perform hsv and otsu thresholding on letters
+    characters7 = image_cleaning(image, hall_of_fame)
+    #6 - Classify letters
+    chain, sum_lists, real_chain, output_string = classify_characters(characters7, letters_list)
+
     #if there are less than 7 characters, return string now
     end_now = 0
     while len(output_string) < 7:
@@ -356,49 +420,9 @@ def FindSomeLetters(image):
         output_string = output_string + '?'
     if end_now == 1:
         return output_string
-
-
     #7 - Try to find out if combination of letters and numbers can exist. If not, evaluate characters again by
     #increasing the scores of letters or numbers.
-    if possible_plates_enabled == 1:
-        # Possible combinations according to: https://pl.wikipedia.org/wiki/Tablice_rejestracyjne_w_Polsce
-        # where 1 represents letter and 0 represents number (only last 5 are considered since first 2 are always a letter)
-        chains = ['00000', '00001', '00011', '01000', '01100', '11000', '10011', '10100', '10010', '10110', '11100']
-        Possible_chains = ['00000', '00001', '00011', '01000', '01100', '11000', '10011', '10100', '10010', '10110', '11100']
-
-        #With enough data, this part helps to distinguish similar numbers and letters (8 and B, 5 and S, etc.)
-        for Possible_chain in chains:
-            for j in range(len(chain)-2):
-                if chain[j+2] == 'x':
-                    continue
-                else:
-                    if chain[j+2] != Possible_chain[j]:
-                        Possible_chains.remove(Possible_chain)
-                        break
-
-        if len(Possible_chains) == 1:
-            for i in range(len(Possible_chains[0])):
-                if chain[i+2] == 'x':
-                    to_modify = 0
-                    if Possible_chains[0][i] == '0' and real_chain[i+2] == '1':
-                        for j in range(len(sum_lists[i+2])):
-                            if j > 9:
-                                sum_lists[i+2][j] = sum_lists[i+2][j] + 2500
-                                to_modify = 1
-
-                    if Possible_chains[0][i] == '1' and real_chain[i+2] == '0':
-                        for j in range(len(sum_lists[i+2])):
-                            if j <= 9:
-                                sum_lists[i+2][j] = sum_lists[i+2][j] + 2500
-                                to_modify = 1
-                    if to_modify == 1:
-                        min_value = min(sum_lists[i + 2])
-                        result = np.where(sum_lists[i + 2] == min_value)
-                        s = list(output_string)
-                        s[i+2] = letters_list[result[0][0]]
-                        output_string = ''.join(s)
-
-
+    output_string = check_combinations(chain, sum_lists, real_chain, letters_list, output_string)
 
 
     if test_mode == 1:
@@ -424,9 +448,14 @@ def main():
         if image is None:
             print(f'Error loading image {image_path}')
             continue
+
+        start_time = time.time()
         results[image_path.name] = FindSomeLetters(image)
-
-
+        end_time = time.time()
+        print(end_time-start_time)
+        score, max_score, all_score, all_count = check_score(results)
+        print(f'{all_score}/{all_count}={all_score/all_count}')
+        print(f'{score}/{max_score}={score / max_score}')
 
 
 
