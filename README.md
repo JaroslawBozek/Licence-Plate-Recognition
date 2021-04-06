@@ -26,7 +26,7 @@ Unknown Set (~50 images):
 Score system:
 * +1 point per recognised character
 * +3 points if all 7 characters were recognised
-* The character is only counted if it's placed in a right place in the output string
+* A character is scored if it's placed in a right place in the output string
 
 ## How does it work?
 ### Preprocess image
