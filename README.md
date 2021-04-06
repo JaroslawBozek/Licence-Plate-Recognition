@@ -10,7 +10,7 @@ The goal of the project was to create a script that is able to read Polish licen
 
 ## Requirements
 * Python 3.7
-* Processing time of each image may not extend 2*images seconds (Specifications of the testing PC were unknown but it was pretty modern for the time of making this project)
+* Processing time of each image may not extend 2\*images seconds (Specifications of the testing PC were unknown but it was pretty modern for the time of making this project)
 * All libraries were available.
 * In case of using machine learning, the model must be trained using the available calculation time. (The project was tested on around 50 images)
 
@@ -29,6 +29,16 @@ Score system:
 * The character is only counted if it's placed in a right place in the output string
 
 ## How does it work?
+### Preprocess image
+* Initially, the image gets resized so it doesnt get processed in an unnecessarily big format.
+### Find characters
+Image gets thresholded multiple times with a different threshold value. During each iteration:
+* Use Opening morphology in order to get rid of small noise and reduce the number of calculation
+* Use findCountours function to draw contours and determine their hierarchy
+* Use the contours to find bounding boxes
+* The image is then cut in multiple, horizontal lines, for every line, check:
+  * If it intersects with at least 4 bounding boxes. If it does, increase intersected boxes' score by one
+  * The dimensions of each bounding box are saved for the next iteration, if the dimensions don't change significantly, the bounding box is still considered to be the same object and its score is saved for the next iterations.
 
 
 ![](img/54m7dp.gif)
