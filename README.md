@@ -43,10 +43,10 @@ Image gets thresholded multiple times with a different threshold value. During e
 
 ![](img/54m7dp.gif)
 
-### Cleaning characters
+### Clean characters
 * Use otsu binarisation to get rid of the noise on each character and convert it into a binary image
 
-### Character classification
+### Classify characters
 * Use connectedComponents function to find the biggest object on each character's image which most likely is the character itself
 * Use warpPerspective in order to try rotate the character into its original pose
 * Resize each character into a 50x50 image
