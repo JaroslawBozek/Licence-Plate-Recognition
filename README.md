@@ -33,7 +33,7 @@ Score system:
 * Initially, the image gets resized so it doesnt get processed in an unnecessarily big format.
 ### Find characters
 Image gets thresholded multiple times with a different threshold value. During each iteration:
-* Use Opening morphology in order to get rid of small noise and reduce the number of calculation
+* Use Opening morphology in order to get rid of small noise and reduce the number of calculations
 * Use findCountours function to draw contours and determine their hierarchy
 * Use the contours to find bounding boxes
 * Cut the image in multiple horizontal lines, for every line check:
