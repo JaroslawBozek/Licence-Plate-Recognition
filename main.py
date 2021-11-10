@@ -457,8 +457,6 @@ def main():
         print(f'{all_score}/{all_count}={all_score/all_count}')
         print(f'{score}/{max_score}={score / max_score}')
 
-
-
     with results_file.open('w') as output_file:
         json.dump(results, output_file, indent=4)
 
